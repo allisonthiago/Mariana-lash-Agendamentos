@@ -34,9 +34,9 @@ import { User, Service, Appointment, UserRole } from '../types';
 */
 
 // Configuração do Cliente Supabase
-const SUPABASE_URL = 'https://vkbqzsttibsebztksnki.supabase.co';
-// Nota: Em produção, utilize variáveis de ambiente. A chave pública (anon) é segura para expor no cliente se as RLS policies estiverem configuradas.
-const SUPABASE_KEY = 'sb_publishable_59_Ag8eGLmWsDiRXre5x0w_KsvCse7g';
+// As variáveis de ambiente devem ser configuradas na Vercel com o prefixo VITE_
+const SUPABASE_URL = (import.meta as any).env.VITE_SUPABASE_URL || 'https://vkbqzsttibsebztksnki.supabase.co';
+const SUPABASE_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_59_Ag8eGLmWsDiRXre5x0w_KsvCse7g';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -89,6 +89,31 @@ export const api = {
 
     if (error) throw new Error(error.message);
     return mapService(data);
+  },
+
+  updateService: async (id: string, service: Partial<Service>): Promise<void> => {
+    const payload: any = {};
+    if (service.title) payload.title = service.title;
+    if (service.description) payload.description = service.description;
+    if (service.price) payload.price = service.price;
+    if (service.durationMinutes) payload.duration_minutes = service.durationMinutes;
+    if (service.imageUrl) payload.image_url = service.imageUrl;
+
+    const { error } = await supabase
+      .from('services')
+      .update(payload)
+      .eq('id', id);
+
+    if (error) throw new Error('Erro ao atualizar serviço: ' + error.message);
+  },
+
+  deleteService: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('services')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error('Erro ao excluir serviço: ' + error.message);
   },
 
   // --- Agendamentos ---
@@ -179,10 +204,24 @@ export const api = {
 
     const bookedTimes = data.map((a: any) => a.time);
     
-    // Definição estática dos horários de atendimento
-    const allSlots = [
-      '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'
-    ];
+    // Definição dinâmica dos horários baseada no dia da semana
+    // date vem no formato YYYY-MM-DD
+    const [year, month, day] = date.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    const dayOfWeek = dateObj.getDay(); // 0 = Domingo, 6 = Sábado
+
+    let allSlots: string[] = [];
+
+    if (dayOfWeek === 6) { // Sábado: 10:00 às 15:00
+      allSlots = ['10:00', '11:00', '12:00', '13:00', '14:00'];
+    } else if (dayOfWeek === 0) { // Domingo: Fechado
+      allSlots = [];
+    } else { // Segunda a Sexta: 10:00 às 20:00
+      allSlots = [
+        '10:00', '11:00', '12:00', '13:00', '14:00', 
+        '15:00', '16:00', '17:00', '18:00', '19:00'
+      ];
+    }
 
     return allSlots.filter(time => !bookedTimes.includes(time));
   },

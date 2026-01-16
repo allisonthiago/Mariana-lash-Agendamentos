@@ -4,7 +4,7 @@ import { api } from './services/api';
 import { Service, User, Appointment, UserRole } from './types';
 import { 
   Calendar, Clock, ChevronRight, CheckCircle2, 
-  Plus, Trash2, Scissors, User as UserIcon, Loader2, X, AlertCircle
+  Plus, Trash2, Scissors, User as UserIcon, Loader2, X, AlertCircle, Pencil
 } from 'lucide-react';
 import { format, addDays, startOfToday, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -323,6 +323,151 @@ const EditAppointmentModal = ({ isOpen, onClose, appointment, services, onSave, 
   );
 };
 
+// Componente: Modal de Edição de Serviço
+const EditServiceModal = ({ isOpen, service, onClose, onSave }: any) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    price: '',
+    duration: '',
+    image: ''
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (service) {
+      setFormData({
+        title: service.title,
+        description: service.description,
+        price: service.price.toString(),
+        duration: service.durationMinutes.toString(),
+        image: service.imageUrl
+      });
+    }
+  }, [service]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, image: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave(service.id, {
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        durationMinutes: parseInt(formData.duration),
+        imageUrl: formData.image
+      });
+      onClose();
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao atualizar serviço.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen || !service) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="font-serif text-xl font-bold text-gray-800">Editar Serviço</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-6 h-6"/></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+            <input
+              required
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-brand-500 outline-none text-sm"
+              value={formData.title}
+              onChange={e => setFormData({...formData, title: e.target.value})}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <textarea
+              required
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-brand-500 outline-none text-sm"
+              value={formData.description}
+              onChange={e => setFormData({...formData, description: e.target.value})}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Preço (R$)</label>
+              <input
+                required
+                type="number"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-brand-500 outline-none text-sm"
+                value={formData.price}
+                onChange={e => setFormData({...formData, price: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Duração (min)</label>
+              <input
+                required
+                type="number"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-brand-500 outline-none text-sm"
+                value={formData.duration}
+                onChange={e => setFormData({...formData, duration: e.target.value})}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Imagem</label>
+            <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 cursor-pointer">
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              {formData.image && (
+                <img src={formData.image} alt="Preview" className="h-20 w-auto mx-auto mb-2 rounded" />
+              )}
+              <div className="text-gray-500 text-xs">
+                {formData.image ? 'Clique para alterar' : 'Clique para enviar foto'}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 flex gap-3 justify-end">
+             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:text-gray-900">Cancelar</button>
+             <button 
+               type="submit"
+               disabled={saving}
+               className="bg-brand-900 text-white px-6 py-2 rounded-lg hover:bg-black transition-colors disabled:opacity-50 flex items-center"
+             >
+               {saving ? <Loader2 className="animate-spin w-4 h-4 mr-2"/> : null}
+               Salvar
+             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // --- Main App Component ---
 
 const App: React.FC = () => {
@@ -349,6 +494,7 @@ const App: React.FC = () => {
   const [adminTab, setAdminTab] = useState<'appointments' | 'services'>('appointments');
   const [newService, setNewService] = useState({ title: '', description: '', price: '', duration: '', image: '' });
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [editingService, setEditingService] = useState<Service | null>(null);
 
   // Effects
   useEffect(() => {
@@ -465,6 +611,22 @@ const App: React.FC = () => {
   const handleCancelAppointment = async (id: string) => {
     await api.updateAppointment(id, { status: 'cancelled' });
     await loadAdminData(); // Reload list
+  };
+
+  const handleUpdateService = async (id: string, updates: any) => {
+    await api.updateService(id, updates);
+    await loadServices();
+  };
+
+  const handleDeleteService = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este serviço? Essa ação não pode ser desfeita.')) {
+      try {
+        await api.deleteService(id);
+        await loadServices();
+      } catch (error: any) {
+        alert('Erro ao excluir: verifique se não há agendamentos vinculados a este serviço.');
+      }
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -813,9 +975,22 @@ const App: React.FC = () => {
                     <span>{s.durationMinutes} min</span>
                   </div>
                 </div>
-                <button className="text-gray-400 hover:text-red-500 self-start">
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button 
+                    onClick={() => setEditingService(s)}
+                    className="text-gray-400 hover:text-brand-600 p-2 hover:bg-brand-50 rounded-lg transition-colors"
+                    title="Editar"
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteService(s.id)}
+                    className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -911,6 +1086,13 @@ const App: React.FC = () => {
         onClose={() => setEditingAppointment(null)}
         onSave={handleUpdateAppointment}
         onCancelAppointment={handleCancelAppointment}
+      />
+
+      <EditServiceModal
+        isOpen={!!editingService}
+        service={editingService}
+        onClose={() => setEditingService(null)}
+        onSave={handleUpdateService}
       />
     </Layout>
   );

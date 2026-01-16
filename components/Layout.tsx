@@ -135,8 +135,8 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
           <div>
             <h4 className="font-bold mb-4 uppercase text-xs tracking-wider text-gray-500">Horário</h4>
-            <p className="text-gray-300">Seg - Sex: 09:00 - 19:00</p>
-            <p className="text-gray-300">Sáb: 09:00 - 14:00</p>
+            <p className="text-gray-300">Seg - Sex: 10:00 - 20:00</p>
+            <p className="text-gray-300">Sáb: 10:00 - 15:00</p>
           </div>
         </div>
       </footer>
