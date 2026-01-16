@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { api } from './services/api';
-import { Service, User, Appointment, UserRole } from './types';
+import { Service, User, Appointment, UserRole, TimeSlot } from './types';
 import { 
   Calendar, Clock, ChevronRight, CheckCircle2, 
   Plus, Trash2, Scissors, User as UserIcon, Loader2, X, AlertCircle, Pencil
@@ -169,7 +169,7 @@ const EditAppointmentModal = ({ isOpen, onClose, appointment, services, onSave, 
     date: '',
     time: ''
   });
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -190,17 +190,11 @@ const EditAppointmentModal = ({ isOpen, onClose, appointment, services, onSave, 
       setLoadingSlots(true);
       api.getAvailableSlots(formData.date)
         .then(slots => {
-          // Se estamos editando, o horário atual do agendamento deve aparecer como opção, 
-          // mesmo que tecnicamente esteja "ocupado" (pelo próprio agendamento)
-          if (appointment && formData.date === appointment.date && !slots.includes(appointment.time)) {
-             setAvailableSlots([...slots, appointment.time].sort());
-          } else {
-             setAvailableSlots(slots);
-          }
+           setAvailableSlots(slots);
         })
         .finally(() => setLoadingSlots(false));
     }
-  }, [formData.date, appointment]);
+  }, [formData.date]);
 
   if (!isOpen || !appointment) return null;
 
@@ -282,15 +276,28 @@ const EditAppointmentModal = ({ isOpen, onClose, appointment, services, onSave, 
                <div className="flex items-center text-sm text-gray-500"><Loader2 className="animate-spin w-4 h-4 mr-2"/> Buscando horários...</div>
             ) : (
               <div className="grid grid-cols-4 gap-2">
-                {availableSlots.map(time => (
-                  <button
-                    key={time}
-                    onClick={() => setFormData({...formData, time})}
-                    className={`text-sm py-2 px-1 rounded border ${formData.time === time ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-700 border-gray-200 hover:border-brand-300'}`}
-                  >
-                    {time}
-                  </button>
-                ))}
+                {availableSlots.map(slot => {
+                  // Se o slot é o do próprio agendamento atual, permitimos selecionar mesmo que "available" seja false (pq ele que está ocupando)
+                  const isCurrentAppointmentTime = appointment && appointment.date === formData.date && appointment.time === slot.time;
+                  const isSelectable = slot.available || isCurrentAppointmentTime;
+
+                  return (
+                    <button
+                      key={slot.time}
+                      disabled={!isSelectable}
+                      onClick={() => setFormData({...formData, time: slot.time})}
+                      className={`text-sm py-2 px-1 rounded border transition-colors 
+                        ${formData.time === slot.time 
+                          ? 'bg-brand-600 text-white border-brand-600' 
+                          : isSelectable
+                            ? 'bg-white text-gray-700 border-gray-200 hover:border-brand-300'
+                            : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-70'
+                        }`}
+                    >
+                      {slot.time}
+                    </button>
+                  );
+                })}
                 {availableSlots.length === 0 && <p className="col-span-4 text-sm text-red-500">Sem horários para esta data.</p>}
               </div>
             )}
@@ -486,7 +493,7 @@ const App: React.FC = () => {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [isBookingLoading, setIsBookingLoading] = useState(false);
 
@@ -788,26 +795,29 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                {availableSlots.length > 0 ? availableSlots.map(time => (
+                {availableSlots.length > 0 ? availableSlots.map(slot => (
                   <button
-                    key={time}
+                    key={slot.time}
+                    disabled={!slot.available}
                     onClick={() => {
-                      setSelectedTime(time);
+                      setSelectedTime(slot.time);
                       if (user) {
-                        handleBookingSubmit(time); // Se logado, já submete
+                        handleBookingSubmit(slot.time); // Se logado, já submete
                       } else {
                         setIsAuthOpen(true); // Se não, abre login
                       }
                     }}
                     className={`
                       py-3 px-4 rounded-lg font-medium transition-all
-                      ${selectedTime === time 
+                      ${selectedTime === slot.time 
                         ? 'bg-brand-600 text-white shadow-md' 
-                        : 'bg-white border border-gray-200 text-gray-700 hover:border-brand-500 hover:text-brand-600'
+                        : slot.available 
+                          ? 'bg-white border border-gray-200 text-gray-700 hover:border-brand-500 hover:text-brand-600'
+                          : 'bg-gray-100 text-gray-400 border border-gray-100 cursor-not-allowed opacity-60'
                       }
                     `}
                   >
-                    {time}
+                    {slot.time}
                   </button>
                 )) : (
                   <div className="col-span-full text-gray-400 py-8">Nenhum horário disponível nesta data.</div>

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { User, Service, Appointment, UserRole } from '../types';
+import { User, Service, Appointment, UserRole, TimeSlot } from '../types';
 
 /* 
   --- INSTRUÇÕES SQL PARA O SUPABASE ---
@@ -189,7 +189,7 @@ export const api = {
     if (error) throw new Error('Erro ao atualizar agendamento: ' + error.message);
   },
 
-  getAvailableSlots: async (date: string): Promise<string[]> => {
+  getAvailableSlots: async (date: string): Promise<TimeSlot[]> => {
     // Busca horários já ocupados para a data
     const { data, error } = await supabase
       .from('appointments')
@@ -223,7 +223,28 @@ export const api = {
       ];
     }
 
-    return allSlots.filter(time => !bookedTimes.includes(time));
+    // Regra: Mínimo 2 horas de antecedência
+    const now = new Date();
+    // Cria um objeto Date representando 2 horas no futuro
+    const minTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+    return allSlots.map(time => {
+      const [hours, minutes] = time.split(':').map(Number);
+      const slotDate = new Date(year, month - 1, day, hours, minutes);
+      
+      const isBooked = bookedTimes.includes(time);
+      
+      // Verifica se o slot é no passado ou muito próximo (menos de 2h), 
+      // mas APENAS se o slotDate for hoje ou passado. 
+      // Como year/month/day vêm da seleção, precisamos garantir que a comparação é válida.
+      // O slotDate < minTime funciona bem: se for amanhã, será maior que agora+2h. Se for hoje, compara hora.
+      const isTooSoon = slotDate < minTime;
+
+      return {
+        time,
+        available: !isBooked && !isTooSoon
+      };
+    });
   },
 
   // --- Autenticação (Tabela Users Customizada & Supabase Auth) ---
